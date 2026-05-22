@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>同理心探索家：校園大冒險 💖</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <style>
+    /* ==================== 滿版繪本風格視覺設計 ==================== */
+    :root {
+      --primary: #8D6E63;     /* 特教粗邊框經典咖啡色 */
+      --bg-color: #FDF6E3;    
+      --card-bg: #FFFFFF;     
+      --success: #4CAF50;
+      --error: #F44336;
+      --btn-hover: #F8F5F0;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      background-color: var(--bg-color);
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    .game-stage {
+      background-color: var(--card-bg);
+      width: 96vw;
+      max-width: 1250px;
+      height: 94vh;
+      border: 6px solid var(--primary);
+      border-radius: 40px;
+      box-shadow: 12px 12px 0px var(--primary);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 0; /* 讓圖片能完美頂天立體貼邊 */
+    }
+
+    .screen {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      display: none;
+      flex-direction: column;
+    }
+
+    .screen.active { display: flex; animation: fadeIn 0.4s ease-out; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    #cover-screen {
+      background: radial-gradient(circle, #FFE4E1 0%, #FDF6E3 100%);
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .title-banner { 
+      font-size: 64px; 
+      color: var(--primary); 
+      margin-bottom: 10px; 
+      font-family: 'Fredoka One', cursive; 
+      text-shadow: 4px 4px 0px #FFF; 
+    }
+    
+    .btn-start {
+      background-color: #FF9AA2;
+      color: white;
+      font-size: 26px;
+      font-weight: bold;
+      padding: 14px 50px;
+      border: 4px solid var(--primary);
+      border-radius: 50px;
+      cursor: pointer;
+      box-shadow: 0px 6px 0px var(--primary);
+      transition: all 0.1s ease;
+    }
+    .btn-start:hover { transform: translateY(-3px); box-shadow: 0px 9px 0px var(--primary); }
+
+    .game-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 25px 8px;
+      border-bottom: 4px dashed var(--primary);
+      flex-shrink: 0;
+      background: white;
+      z-index: 10;
+    }
+
+    .progress-dots { display: flex; gap: 12px; }
+    .dot { width: 22px; height: 22px; border: 3px solid var(--primary); border-radius: 50%; background: white; }
+    .dot.active { background: #FF9AA2; }
+    .dot.done { background: #81C784; }
+
+    /* ==================== 終極完美比例：上大圖 ➡️ 下問答/下選項 ==================== */
+    .game-layout-vertical-stack {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* 1. 【最上方全版面大圖】自動適應分配 48%，保證大圖填滿，又絕對不會推擠下方內容 */
+    .top-image-panel-full {
+      width: 100%;
+      height: 52%; 
+      overflow: hidden;
+      flex-shrink: 0;
+      border-bottom: 6px solid var(--primary);
+      background: #FFF;
+    }
+    
+    .top-image-panel-full img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover; /* 100% 滿版橫向填滿，重現高質感有聲繪本 */
+      display: block;
+    }
+
+    /* 2. 【下半部互動平台】自動分流 52%，題目卡與按鈕各就各位，絕對不失蹤 */
+    .bottom-grids-horizontal-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr; /* 左右黃金 1:1 分欄，字體清晰好看 */
+      gap: 25px;
+      padding: 20px 25px; 
+      flex: 1;
+      min-height: 0;
+      background-color: var(--card-bg);
+    }
+
+    /* 左下：質感白底咖啡粗邊框題目卡 */
+    .question-card-white {
+      background-color: #FFFFFF;
+      border: 5px solid var(--primary);
+      border-radius: 24px;
+      padding: 18px;
+      font-size: 18px;
+      line-height: 1.6;
+      position: relative;
+      box-shadow: 5px 5px 0px var(--primary);
+      overflow-y: auto;
+      height: 100%;
+    }
+
+    .tts-ctrl {
+      position: absolute; right: 15px; bottom: 12px;
+      background: #FFFDE7; border: 3px solid var(--primary); border-radius: 50%;
+      width: 42px; height: 42px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 18px; color: var(--primary); box-shadow: 2px 2px 0px var(--primary);
+    }
+
+    /* 右下：選項控制區 */
+    .interaction-right-panel {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      height: 100%;
+      min-height: 0;
+    }
+
+    .options-container-example {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+      overflow-y: auto;
+    }
+
+    /* 草圖風格按鈕：圓形圖標、立體陰影 */
+    .option-btn-white {
+      background: white; border: 4px solid var(--primary); border-radius: 18px;
+      padding: 12px 18px; font-size: 16px; text-align: left; cursor: pointer;
+      box-shadow: 4px 4px 0px var(--primary);
+      display: flex; align-items: center; gap: 15px;
+      transition: 0.1s;
+      width: 100%;
+    }
+    .option-btn-white:hover { background-color: var(--btn-hover); transform: translateX(5px); }
+
+    .opt-icon {
+      width: 30px; height: 30px; background-color: #FF9AA2; color: white;
+      border: 3px solid var(--primary); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: bold; font-family: 'Fredoka One', cursive; flex-shrink: 0;
+    }
+
+    .correct-anim { background-color: var(--success) !important; color: white; }
+    .wrong-anim { background-color: var(--error) !important; color: white; animation: shake 0.4s ease; }
+
+    @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
+
+    /* 精緻比例的開放式問答 */
+    .chat-box-layout { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+    .chat-area-small {
+      border: 4px solid var(--primary); border-radius: 25px;
+      background: #FAFAFA; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;
+      height: 120px; 
+    }
+    .input-box { display: flex; gap: 10px; }
+    .input-box input { flex: 1; padding: 12px; border-radius: 15px; border: 4px solid var(--primary); font-size: 16px; outline: none; }
+
+    /* ==================== 獨立滿版建議大彈窗（右下角無下一關按鈕） ==================== */
+    .modal-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background-color: rgba(0, 0, 0, 0.4);
+      z-index: 999; display: none; justify-content: center; align-items: center;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .explanation-modal-card {
+      background-color: #FFF0F5; 
+      border: 6px solid var(--primary);
+      border-radius: 40px;
+      width: 85%; max-width: 650px;
+      padding: 30px; text-align: center;
+      box-shadow: 12px 12px 0px var(--primary);
+    }
+
+    .modal-header-title { font-size: 26px; font-weight: bold; color: #FF6B6B; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .modal-body-text { font-size: 19px; line-height: 1.6; color: #4A4A4A; margin-bottom: 25px; text-align: left; background: white; padding: 20px; border-radius: 25px; border: 4px solid var(--primary); }
+
+    .modal-btn-row { display: flex; gap: 20px; justify-content: center; }
+    .btn-modal-action { font-size: 17px; padding: 12px 30px; border-radius: 20px; cursor: pointer; border: 4px solid var(--primary); font-weight: bold; box-shadow: 4px 4px 0px var(--primary); transition: 0.1s; }
+    .btn-modal-action:active { transform: translateY(4px); box-shadow: 0px 0px 0px var(--primary); }
+
+    /* 最右上角粉紅點播小喇叭 */
+    .music-btn {
+      position: fixed; top: 15px; right: 15px; z-index: 100;
+      background: #FF9AA2; border: 3px solid var(--primary); border-radius: 50%;
+      width: 52px; height: 52px; cursor: pointer; font-size: 20px; color: white;
+      box-shadow: 3px 3px 0px var(--primary);
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    #end-screen {
+      padding: 20px;
+      justify-content: center;
+      align-items: center;
+    }
+    #end-rating {
+      font-size: 24px;
+      text-align: center;
+    }
+    #end-evaluation {
+      margin-top: 20px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <audio id="bgm" loop preload="auto" src="小手心花園.mp3"></audio>
+  <audio id="audio-deck-4" src="ttsmaker-file-2026-5-21-17-5-4.mp3" preload="auto"></audio>
+  <audio id="audio-deck-5" src="ttsmaker-file-2026-5-21-17-3-40.mp3" preload="auto"></audio>
+
+  <audio id="sfx-correct" src="https://api.coderbridge.com/assets/audios/correct.mp3" preload="auto"></audio>
+  <audio id="sfx-wrong" src="https://api.coderbridge.com/assets/audios/wrong.mp3" preload="auto"></audio>
+
+  <button class="music-btn" onclick="toggleMusic()"><i id="music-icon" class="fa-solid fa-volume-xmark"></i></button>
+
+  <div class="game-stage">
+    
+    <div class="screen active" id="cover-screen">
+      <div class="heart-float">
+        <i class="fa-solid fa-face-smile-wink" style="font-size: 100px; margin-bottom: 20px; color:#4A4A4A;"></i>
+      </div>
+      <div class="title-banner">同理心探索家 💖</div>
+      <p style="font-size: 24px; color: #8D6E63; margin-bottom: 40px; font-weight: bold;">開啟你的校園包容大冒險！</p>
+      <button class="btn-start" onclick="startGame()">START 開始探索</button>
+    </div>
+
+    <div class="screen" id="game-screen">
+      <div class="game-header">
+        <span id="level-title" style="font-weight: bold; font-size: 24px; color: #4A4A4A;">載入中...</span>
+        <div class="progress-dots" id="dots"></div>
+      </div>
+      
+      <div class="game-layout-vertical-stack">
+        
+        <div class="top-image-panel-full">
+          <img src="" alt="特教融合繪本插圖" id="dynamic-stage-img">
+        </div>
+
+        <div class="bottom-grids-horizontal-row">
+          
+          <div class="question-card-white">
+            <span id="question-text">載入題目中...</span>
+            <button class="tts-ctrl" onclick="toggleAudio()"><i id="tts-icon" class="fa-solid fa-volume-high"></i></button>
+          </div>
+
+          <div class="interaction-right-panel">
+            <div id="options-box" class="options-container-example"></div>
+
+            <div id="chat-box" class="chat-box-layout" style="display:none;">
+              <div class="chat-area-small" id="chat-content"></div>
+              <div class="input-box">
+                <input type="text" id="user-input" placeholder="打字寫下你的同理心應對策略..." onkeypress="if(event.key==='Enter')sendChat()">
+                <button class="btn-start" style="font-size: 15px; padding: 6px 20px; box-shadow: 4px 4px 0px var(--primary);" onclick="sendChat()">送出</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <div class="screen" id="end-screen">
+      <div id="end-rating"></div>
+      <div id="end-evaluation"></div>
+    </div>
+
+    <div class="modal-overlay" id="explanation-modal">
+      <div class="explanation-modal-card">
+        <div class="modal-header-title">
+          <i class="fa-solid fa-chalkboard-user"></i> <span>AI老師的小叮嚀</span>
+        </div>
+        <div class="modal-body-text" id="modal-exp-text">載入回饋中...</div>
+        <div class="modal-btn-row">
+          <button class="btn-modal-action" style="background-color: #FF9AA2; color: white;" onclick="confirmModalNext()">我知道了，下一關 ➡️</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // 5大特教獨立關卡配置
+    const gameData = [
+      {
+        title: "第一關｜一直坐不住",
+        imgFile: "ChatGPT Image 1.png", 
+        question: "【注意力不足過動特質】自然課上到一半時，小宇一直忍不住轉筆、東張西望，還不小心把水壺碰倒。全班突然大笑。小宇趕快低下頭，看起來很不好意思。而你剛好坐在他的旁邊。問題：如果你是坐在小宇旁邊的同學，你會怎麼做？",
+        type: "quiz",
+        options: [
+          { label: "A", text: "跟其他同學一起笑，因為覺得真的很好笑。", correct: false, score: 0, exp: "❌ 明顯錯誤。群體嘲笑會加深特教生在社交場合的羞愧感，削弱自信心喔。" },
+          { label: "B", text: "直接跟老師大喊說：「老師！小宇他又在課堂上搗亂了！」", correct: false, score: 0, exp: "❌ 迷思型錯誤！看似守規矩通報，但缺少同理心與主動協助的意願。" },
+          { label: "C", text: "幫他一起把水壺撿起來，小聲提醒他慢慢來，並叫其他同學不要笑他。", correct: true, score: 2, exp: "💖 答對了！主動伸出援手與不帶批判的溫和提醒，能提供給過動特質孩子最需要的安全社交支持！" },
+        ]
+      },
+      {
+        title: "第二關｜躲避球比賽",
+        imgFile: "ChatGPT Image 2.png", 
+        question: "【肢體障礙】體育課要打躲避球。你和小強同一隊，但因為他跑步和平衡動作比較慢，有同學開始抱怨：「他上場我們一定會輸啦！」小強聽到後默默低下頭。問題：如果你是小強的隊友，你會怎麼做？",
+        type: "quiz",
+        options: [
+          { label: "A", text: "叫小強去旁邊幫大家拿水、當啦啦隊加油，這樣對他比較安全。", correct: false, score: 0, exp: "❌ 迷思型錯誤。看似體貼，本質上卻是剥奪平等參與活動權利的『排除』行為。" },
+          { label: "B", text: "跟大家說可以調整分工，讓小強負責接球和傳球等適合他的任務。", correct: true, score: 2, exp: "💖 答對了！實踐特教通用設計精神，微調團隊分工讓每個人發揮長處，這才是真正的包容！" },
+          { label: "C", text: "假裝沒聽到大家的對話，球賽開始後自己顧自己玩就好。", correct: false, score: 0, exp: "❌ 逃避型錯誤。選擇冷漠旁觀會任由排斥性的負面氣氛蔓延，造成二度傷害。" },
+        ]
+      },
+      {
+        title: "第三關｜一直被笑的朗讀課",
+        imgFile: "ChatGPT Image 3.png", 
+        question: "【學習障礙】國語課時，小明讀課文讀得很慢，還常常跳行。他把「游泳」讀成「湧游」後，班上開始有人偷笑。小明臉漲得通紅，聲音也變得很小。而你剛好坐在他的旁邊。問題：如果你是坐在旁邊的同學，你會怎麼做？",
+        type: "quiz",
+        options: [
+          { label: "A", text: "小聲幫他指著課本的位置，在旁邊陪他一起慢慢讀。", correct: true, score: 2, exp: "💖 答對了！學習障礙孩子智商完全正常，最需要的就是清晰的『視覺文字指引定位』與不催促的陪伴！" },
+          { label: "B", text: "直接站起來幫他把後面全部大聲念完，讓他趕快坐下休息。", correct: false, score: 0, exp: "❌ 迷思型錯誤。直接代勞變成了『代替』而非幫助，會剥奪練習機會並削弱價值感。" },
+          { label: "C", text: "跟著其他同學一起笑，覺得大家飾演開玩笑不用太在意。", correct: false, score: 0, exp: "❌ 明顯錯誤。忽視羞愧與挫折，將文字障礙當作玩笑，會對學障生造成心靈創傷。" },
+        ]
+      },
+      {
+        title: "第四關｜突然情緒失控",
+        imgFile: "ChatGPT Image 4.png", 
+        question: "【情緒行為障礙】中午排隊領午餐時，阿傑因為等太久開始很煩躁。被別人碰到後，他突然大吼，還把水果打翻在地。大家都被嚇了一跳。而你剛好站在附近。問題（開放式）：如果你是現場看到這一切的同班同學，你會怎麼做？",
+        type: "chat"
+      },
+      {
+        title: "第五關｜自由分組的時刻",
+        imgFile: "ChatGPT Image 5.png", 
+        question: "【自閉症】下週要校外教學，老師宣布自由分組。全班都很興奮地找朋友組隊，但你發現小華一直低著頭坐在位子上，不敢主動找別人說話。有同學小聲說：「他每次都不講話，很難相處耶……」小華聽到後，更不敢抬頭了。而你剛好坐在附近，也看到這一切。問題（開放式）：如果你是現場看到這一切的同班同學，你會怎麼做？",
+        type: "chat"
+      }
+    ];
+
+    let currentStep = 0;
+    let totalScore = 0; 
+    let isPlayingVoice = false;
+    let synth = window.speechSynthesis;
+    let v4, v5;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      v4 = document.getElementById('audio-deck-4'); 
+      v5 = document.getElementById('audio-deck-5'); 
+      document.getElementById('bgm').volume = 0.12; 
+      v4.volume = 1.0;
+      v5.volume = 1.0;
+    });
+
+    function startGame() {
+      document.getElementById('cover-screen').classList.remove('active');
+      document.getElementById('game-screen').classList.add('active');
+      document.getElementById('bgm').play().catch(()=>{});
+      loadLevel(); 
+    }
+
+    function loadLevel() {
+      killAllVoice(); 
+      const data = gameData[currentStep];
+      document.getElementById('level-title').innerText = data.title;
+      document.getElementById('question-text').innerText = data.question;
+      
+      // 🎯 完美渲染：關卡切換直接讀取對應的獨立大圖
+      document.getElementById('dynamic-stage-img').src = data.imgFile;
+
+      document.getElementById('explanation-modal').style.display = "none";
+
+      const optBox = document.getElementById('options-box');
+      const chatBox = document.getElementById('chat-box');
+      
+      if (data.type === "quiz") {
+        optBox.style.display = "flex";
+        chatBox.style.display = "none";
+        optBox.innerHTML = "";
+        data.options.forEach(opt => {
+          const btn = document.createElement('button');
+          btn.className = "option-btn-white";
+          btn.innerHTML = `<div class="opt-icon">${opt.label}</div> <span>${opt.text}</span>`;
+          btn.onclick = (e) => checkAnswer(opt, btn);
+          optBox.appendChild(btn);
+        });
+      } else {
+        optBox.style.display = "none";
+        chatBox.style.display = "flex";
+        document.getElementById('chat-content').innerHTML = `<div class="msg ai">請在下方寫下你具體的同理心應對策略...</div>`;
+      }
+      
+      setTimeout(() => playVoice(), 500);
+    }
+
+    function playVoice() {
+      killAllVoice();
+      isPlayingVoice = true;
+      document.getElementById('tts-icon').className = "fa-solid fa-pause";
+      
+      if (currentStep === 0 || currentStep === 1 || currentStep === 2) {
+        let utterance = new SpeechSynthesisUtterance(gameData[currentStep].question);
+        utterance.lang = 'zh-TW'; utterance.pitch = 1.75; utterance.rate = 0.94;
+        utterance.onend = () => stopButtonUI();
+        synth.speak(utterance);
+      } else if (currentStep === 3) {
+        v4.currentTime = 0; v4.play().catch(()=>{}); v4.onended = () => stopButtonUI();
+      } else if (currentStep === 4) {
+        v5.currentTime = 0; v5.play().catch(()=>{}); v5.onended = () => stopButtonUI();
+      }
+    }
+
+    function checkAnswer(opt, targetBtn) {
+      const sfxCorrect = document.getElementById('sfx-correct');
+      const sfxWrong = document.getElementById('sfx-wrong');
+      document.querySelectorAll('.option-btn-white').forEach(b => b.classList.remove('correct-anim', 'wrong-anim'));
+      killAllVoice();
+
+      document.getElementById('modal-exp-text').innerText = opt.exp;
+
+      if (opt.correct) {
+        targetBtn.classList.add('correct-anim');
+        sfxCorrect.play().catch(()=>{});
+        totalScore += opt.score;
+      } else {
+        targetBtn.classList.add('wrong-anim');
+        sfxWrong.play().catch(()=>{});
+      }
+      setTimeout(() => { document.getElementById('explanation-modal').style.display = "flex"; }, 600);
+    }
+
+    async function sendChat() {
+      const input = document.getElementById('user-input');
+      const text = input.value.trim();
+      if (!text) return;
+      appendMsg('user', text);
+      input.value = ""; killAllVoice();
+      const aiLoading = appendMsg('ai', "⚡ AI審查策略中...");
+      const sfxCorrect = document.getElementById('sfx-correct');
+      
+      setTimeout(() => {
+        let stars = "再想一想，你可以做得更好！";
+        let feedback = "你有努力過了，不過這樣的應對方式可能比較沒辦法幫到同學，甚至會讓現場的衝突擴大，或讓同學感到更受傷喔！每個人都有遇到困難、控制不住自己的時候，試著換位思考，想一想如果自己是那位需要幫忙的同學，會希望別人怎麼對待你呢？讓我們重新看一次題目，試著用「多一點關心、少一點責備」的方式再挑戰一次吧！";
+        let score = 0;
+
+        if (currentStep === 3) { 
+          if (text.includes("先確認安全") || text.includes("先讓大家退開") || text.includes("陪阿傑冷靜") || text.includes("理解他很煩躁") || text.includes("分工幫忙") || text.includes("安撫其他同學") || text.includes("不嘲笑") || text.includes("等他平靜")) { 
+            stars = "⭐⭐⭐⭐⭐⭐⭐ 全方位的安全與同理守護者"; 
+            feedback = "太棒了！你的思維非常成熟且周全。你不僅能顧及「現場安全」，兼顧「環境整理」與「旁人安撫」，更對阿傑抱持著不貼標籤的深刻同理心。這是最高品質的危機處理與同儕互助！"; 
+            score = 7;
+          } else if (text.includes("冷靜") || text.includes("陪他") || text.includes("慢慢說") || text.includes("深呼吸") || text.includes("帶去旁邊") || text.includes("安靜的地方") || text.includes("先休息") || text.includes("不要刺激他")) {
+            stars = "⭐⭐⭐⭐⭐ 具有優秀的情緒覺察力與安撫技巧";
+            feedback = "你展現了很好的情商！你懂得「降低環境刺激」是平息憤怒的關鍵，並願意陪伴他去旁邊冷靜。你的冷靜與包容，是混亂現場中最穩定人心的一股力量。";
+            score = 5;
+          } else if (text.includes("找老師") || text.includes("叫老師") || text.includes("去通知老師") || text.includes("離開") || text.includes("快跑") || text.includes("幫忙") || text.includes("撿水果")) {
+            stars = "⭐⭐⭐ 具備協助意識，但互動較少";
+            feedback = "你做得很好的一點是注意到了現場的狀況，並懂得尋求老師協助或幫忙清理環境。不過，除了這些被動的應對，現場的阿傑也需要情感上的支持，下次試著在安全的前提下，多給同學一些關心吧！";
+            score = 3;
+          } else if (text.includes("不要鬧") || text.includes("好可怕") || text.includes("神經病") || text.includes("活該") || text.includes("罵他") || text.includes("生氣") || text.includes("叫他閉嘴")) {
+            stars = "⭐ 需要學習同理心";
+            feedback = "你目前的直覺反應偏向指責與排斥。當同學情緒失控時，責罵或嘲笑只會像火上加油。試著換位思考，理解他此刻正處於極度煩躁與痛苦中，而非故意搗蛋。";
+            score = 1;
+          }
+        } else if (currentStep === 4) { 
+          if (text.includes("讓他覺得安心") || text.includes("不催他") || text.includes("慢慢陪他") || text.includes("不讓他覺得被可憐") || text.includes("主動陪伴") || text.includes("尊重他的感受") || text.includes("不貼標籤") || text.includes("自然邀請")) { 
+            stars = "⭐⭐⭐⭐⭐⭐⭐ 兼具深度同理與尊重的完美夥伴"; 
+            feedback = "你的表現令人讚嘆！你提供的不是「同情或可憐」，而是「真正的接納與平等尊重」。你懂得用最不著痕跡的方式化解他的緊張，並陪伴他融入後續的討論，是班級裡最溫暖的友誼模範。"; 
+            score = 7;
+          } else if (text.includes("小聲問") || text.includes("不讓大家注意") || text.includes("陪他") || text.includes("慢慢聊") || text.includes("不逼他") || text.includes("給他安全感") || text.includes("自然邀請")) { 
+            stars = "⭐⭐⭐⭐⭐ 心思細膩，懂得保護他人的自尊"; 
+            feedback = "你非常貼心！你敏銳地察覺到了小華害怕被注視的「社交壓力」，並選擇用「小聲、自然」的方式保護他的自尊心。這種顧及他人感受的溫柔，能讓人打從心底感到安全與放鬆。"; 
+            score = 5;
+          } else if (text.includes("幫他喊人") || text.includes("大聲問") || text.includes("誰要跟他一組") || text.includes("直接拉他過來") || text.includes("問他要不要一組")) { 
+            stars = "⭐⭐⭐ 出發點良善，但方法可以更貼心"; 
+            feedback = "你有一顆想幫忙的熱心，這很值得肯定！不過，對於害羞或有社交壓力的同學來說，大聲張揚或直接拉扯會讓他成為焦點，反而更尷尬。下次試著用更細膩、溫柔的方式靠近他。"; 
+            score = 3;
+          } else if (text.includes("不理他") || text.includes("不關我的事") || text.includes("他很怪") || text.includes("不想跟他同組") || text.includes("讓老師處理")) { 
+            stars = "⭐ 需要培養關懷與接納"; 
+            feedback = "你目前選擇了冷漠或避開，這可能會讓默默承受壓力的同學感到更加孤單。每個人都有不擅長社交的時刻，試著在生活中多付出一點點觀察與善意，世界會因你更溫暖。"; 
+            score = 1;
+          }
+        }
+
+        totalScore += score;
+        sfxCorrect.play().catch(()=>{});
+        document.getElementById(aiLoading).innerHTML = `<strong>${stars}</strong><br>${feedback}`;
+        document.getElementById('modal-exp-text').innerHTML = `<h3>${stars}</h3><p>${feedback}</p>`;
+        
+        setTimeout(() => { document.getElementById('explanation-modal').style.display = "flex"; }, 1200);
+      }, 1500);
+    }
+
+    function closeModal() { document.getElementById('explanation-modal').style.display = "none"; }
+    function confirmModalNext() { closeModal(); nextLevel(); }
+
+    function nextLevel() {
+      currentStep++;
+      if (currentStep < gameData.length) loadLevel(); 
+      else {
+        document.getElementById('game-screen').classList.remove('active');
+        document.getElementById('end-screen').classList.add('active');
+        killAllVoice();
+        const ratingEl = document.getElementById('end-rating');
+        const evalEl = document.getElementById('end-evaluation');
+        if (totalScore >= 15) { ratingEl.innerHTML = `總積分：${totalScore}分 / 20分 🏆<br>榮獲：【特教融合領航大師】`; evalEl.innerText = "精彩絕倫的表現！你在所有關卡挑戰中展現了極高且細緻的實務融合教育價值！"; }
+        else { ratingEl.innerHTML = `總積分：${totalScore}分 / 20分 ✨<br>榮獲：【溫慢校園包容天使】`; evalEl.innerText = "表現十分優異！未來若能更靈敏地帶入『低焦慮通用環境微調與主動管道建立』，你的特教融合課堂會更加趨近完美！"; }
+      }
+    }
+
+    function toggleAudio() {
+      if (currentStep < 3) {
+        if (synth.speaking) { if (synth.paused) synth.resume(); else synth.pause(); } else playVoice();
+      } else {
+        const active = (currentStep === 3) ? v4 : v5;
+        if (isPlayingVoice) { active.pause(); stopButtonUI(); } else { active.play().catch(()=>{}); isPlayingVoice = true; }
+      }
+    }
+
+    function stopButtonUI() { isPlayingVoice = false; document.getElementById('tts-icon').className = "fa-solid fa-play"; }
+    function killAllVoice() { synth.cancel(); if(v4 && v5) { v4.pause(); v5.pause(); } stopButtonUI(); }
+    
+    function toggleMusic() {
+      const bgm = document.getElementById('bgm'); const icon = document.getElementById('music-icon');
+      if (bgm.paused) { bgm.play(); icon.className = "fa-solid fa-music"; } else { bgm.pause(); icon.className = "fa-solid fa-volume-xmark"; }
+    }
+    
+    function appendMsg(sender, text) {
+      const div = document.createElement('div');
+      const id = "msg-" + Date.now();
+      div.id = id;
+      div.className = `msg ${sender}`;
+      div.innerHTML = text;
+      document.getElementById('chat-content').appendChild(div);
+      return id;
+    }
+  </script>
+</body>
+</html>
