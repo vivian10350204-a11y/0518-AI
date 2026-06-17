@@ -28,17 +28,23 @@ module.exports = async function handler(req, res) {
     }
 
     // Vercel 會自動解析 req.body 為 JSON
-    // 將資料轉送給 GAS
+    // 將資料轉成 form-urlencoded 後轉送給 GAS
+    const params = new URLSearchParams(req.body).toString();
     const response = await fetch(gasUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      body: params,
       redirect: 'follow'
     });
 
-    // 取得 GAS 回應
-    const result = await response.json();
-    return res.status(200).json(result);
+    // GAS 可能會回傳純文字或 JSON
+    const contentType = response.headers.get('content-type') || '';
+    const responseText = await response.text();
+    if (contentType.includes('application/json')) {
+      return res.status(200).json(JSON.parse(responseText));
+    }
+
+    return res.status(200).json({ status: 'ok', body: responseText });
 
   } catch (error) {
     console.error('Error forwarding to GAS:', error);
