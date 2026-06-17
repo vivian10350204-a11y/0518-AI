@@ -269,9 +269,6 @@
 
   <button class="music-btn" onclick="toggleMusic()"><i id="music-icon" class="fa-solid fa-volume-xmark"></i></button>
 
-  <!-- 顯眼浮動測試按鈕（方便找不到封面的使用者） -->
-  <button id="gas-test-float" onclick="testSendToGAS()" style="position:fixed; left:18px; bottom:18px; z-index:2000; background:#FFD54F; color:#3E2723; border:3px solid #8D6E63; padding:12px 16px; border-radius:12px; font-weight:bold; box-shadow:4px 4px 0px #8D6E63;">測試 GAS 傳送</button>
-
   <div class="game-stage">
     
     <div class="screen active" id="cover-screen">
@@ -282,7 +279,6 @@
       <p style="font-size: 24px; color: #8D6E63; margin-bottom: 40px; font-weight: bold;">開啟你的校園包容大冒險！</p>
       <div style="display:flex; gap:12px; justify-content:center;">
         <button class="btn-start" onclick="startGame()">START 開始探索</button>
-        <button id="gas-test-btn" class="btn-start" style="background:#FFECB3; color:#8D6E63; border-color:#8D6E63; font-size:16px; padding:10px 18px; box-shadow:none;" onclick="testSendToGAS()">測試 GAS 傳送</button>
       </div>
     </div>
 
@@ -579,137 +575,31 @@ const gameData = [
       });
       const body = params.toString();
 
-      updateGasStatus('開始傳送到 GAS（多重備援）...');
-      console.log('📤 GAS 送出資料（開始）', GAS_URL, body);
-
-      const attempt = { ts: new Date().toISOString(), methods: {}, body };
-
-      // 1) fetch no-cors (常用但無回應可讀)
+      updateGasStatus('正在傳送資料到 GAS...');
+      console.log('📤 GAS 送出資料', GAS_URL, body);
       try {
         await fetch(GAS_URL, {
-          method: 'POST', mode: 'no-cors', cache: 'no-cache',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' }, body
+          method: 'POST',
+          mode: 'no-cors',
+          cache: 'no-cache',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+          body: body
         });
-        attempt.methods.fetch = 'sent';
-        console.log('✅ fetch(no-cors) 已觸發');
-      } catch (e) { attempt.methods.fetch = `err:${e.message}`; console.warn('fetch err', e); }
 
-      // 2) navigator.sendBeacon（同步背景傳送）
-      try {
+        updateGasStatus('資料已發送到 GAS；請稍後檢查試算表。');
+      } catch (error) {
+        console.warn('⚠️ GAS request 失敗：', error);
+        updateGasStatus(`傳送失敗：${error.message}`);
+
         if (navigator.sendBeacon) {
           const blob = new Blob([body], { type: 'application/x-www-form-urlencoded' });
-          const ok = navigator.sendBeacon(GAS_URL, blob);
-          attempt.methods.sendBeacon = ok ? 'sent' : 'failed';
-          console.log('📡 sendBeacon result=', ok);
+          const beaconSent = navigator.sendBeacon(GAS_URL, blob);
+          console.log('📡 sendBeacon 已送出:', beaconSent);
+          updateGasStatus(`sendBeacon 備援已發送，成功：${beaconSent}`);
         } else {
-          attempt.methods.sendBeacon = 'unsupported';
+          console.error('❌ sendBeacon 不可用，無法備援。');
+          updateGasStatus('sendBeacon 不可用，無法備援。');
         }
-      } catch (e) { attempt.methods.sendBeacon = `err:${e.message}`; }
-
-      // 3) image ping (GET) - 有時可繞過某些阻擋
-      try {
-        await tryImagePing(GAS_URL + '?' + params.toString());
-        attempt.methods.img = 'loaded';
-        console.log('🖼 image ping load');
-      } catch (e) { attempt.methods.img = `err:${e.message}`; console.warn('image ping err', e); }
-
-      // 4) hidden form POST to hidden iframe (更有可能觸發 server-side doPost)
-      try {
-        await tryFormPost(GAS_URL, params);
-        attempt.methods.form = 'posted';
-        console.log('📮 form POST complete');
-      } catch (e) { attempt.methods.form = `err:${e.message}`; console.warn('form post err', e); }
-
-      // 紀錄嘗試到 localStorage
-      logAttempt(attempt);
-
-      updateGasStatus('已嘗試多種傳送方法（詳情儲存在 localStorage）。');
-      showToast('已嘗試傳送到 GAS，詳情儲存在 localStorage');
-      console.log('📤 GAS 送出資料（結束）', attempt);
-    }
-
-    function tryImagePing(url) {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        let done = false;
-        img.onload = () => { if (!done) { done = true; resolve(true); } };
-        img.onerror = () => { if (!done) { done = true; reject(new Error('image load error')); } };
-        // timeout in 5s
-        setTimeout(() => { if (!done) { done = true; reject(new Error('image ping timeout')); } }, 5000);
-        img.src = url + '&_=' + Date.now();
-      });
-    }
-
-    function tryFormPost(url, params) {
-      return new Promise((resolve, reject) => {
-        try {
-          const iframeId = 'gas-post-iframe';
-          let iframe = document.getElementById(iframeId);
-          if (!iframe) {
-            iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            iframe.id = iframeId;
-            document.body.appendChild(iframe);
-          }
-
-          const form = document.createElement('form');
-          form.method = 'POST'; form.action = url; form.target = iframeId; form.style.display = 'none';
-          // append inputs
-          for (const [k, v] of params.entries()) {
-            const inp = document.createElement('input'); inp.type = 'hidden'; inp.name = k; inp.value = v; form.appendChild(inp);
-          }
-          document.body.appendChild(form);
-
-          let settled = false;
-          const onLoad = () => { if (!settled) { settled = true; cleanup(); resolve(true); } };
-          const onError = () => { if (!settled) { settled = true; cleanup(); reject(new Error('iframe load error')); } };
-
-          const cleanup = () => { iframe.removeEventListener('load', onLoad); iframe.removeEventListener('error', onError); try { form.remove(); } catch(e){} };
-
-          iframe.addEventListener('load', onLoad);
-          iframe.addEventListener('error', onError);
-
-          // submit
-          form.submit();
-
-          // fallback timeout
-          setTimeout(() => { if (!settled) { settled = true; cleanup(); resolve(true); } }, 7000);
-        } catch (e) { reject(e); }
-      });
-    }
-
-    function logAttempt(attempt) {
-      try {
-        const key = 'gas_attempts_v1';
-        const prev = JSON.parse(localStorage.getItem(key) || '[]');
-        prev.push(attempt);
-        // keep last 50
-        while (prev.length > 50) prev.shift();
-        localStorage.setItem(key, JSON.stringify(prev));
-      } catch (e) { console.warn('logAttempt fail', e); }
-    }
-
-    function showToast(msg) {
-      let t = document.getElementById('gas-toast');
-      if (!t) {
-        t = document.createElement('div'); t.id = 'gas-toast';
-        t.style.position = 'fixed'; t.style.right = '18px'; t.style.bottom = '18px'; t.style.zIndex = 3000;
-        t.style.background = '#333'; t.style.color = '#fff'; t.style.padding = '10px 14px'; t.style.borderRadius = '10px'; t.style.boxShadow = '2px 2px 0px #222';
-        document.body.appendChild(t);
-      }
-      t.innerText = msg;
-      t.style.opacity = '1';
-      setTimeout(() => { t.style.transition = 'opacity 0.6s'; t.style.opacity = '0'; }, 3000);
-    }
-
-    // 測試按鈕用：從頁面觸發送出測試資料到 GAS
-    function testSendToGAS() {
-      try {
-        // 使用中間函式 submitScoresToGAS
-        submitScoresToGAS(12);
-      } catch (e) {
-        alert('觸發測試時發生錯誤：' + e.message);
-        console.error(e);
       }
     }
 
